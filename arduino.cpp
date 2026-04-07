@@ -6,8 +6,8 @@
 #include <time.h>
 
 // 🔷 WiFi
-#define WIFI_SSID "Rohit"
-#define WIFI_PASSWORD "11111111"
+#define WIFI_SSID "Shreya"
+#define WIFI_PASSWORD "shreyaaaa"
 
 // 🔷 Firebase
 #define FIREBASE_URL "https://rfid-attendance-system-aabc3-default-rtdb.firebaseio.com"
@@ -173,7 +173,6 @@ void loop() {
     Serial.println("Fetched Status: " + status);
     Serial.println("Fetched SessionID: " + sessionId);
     Serial.println("---------------------------");
-
 
     // 🔴 EXISTING CHECK
     if (status != "active") {

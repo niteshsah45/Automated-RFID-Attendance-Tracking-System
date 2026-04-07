@@ -36,6 +36,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 setPersistence(auth, browserSessionPersistence);
 const db = getDatabase(app);
+let isInitializing = false;
 
 // DOM
 const loginCard = document.getElementById('login-card');
@@ -143,6 +144,9 @@ logoutBtn.addEventListener('click', async () => {
 
   if (!confirmLogout) return;
 
+  saveSessionHistory();
+
+
   await update(ref(db, 'activeSession'), {
     status: "inactive"
   });
@@ -199,6 +203,19 @@ function loadTeacherSubjects(email) {
   });
 }
 
+// function for syncing auto subjects
+function syncSubjectSelection() {
+  if (!selectedSubject) return;
+  if (subjectSelect.options.length === 0) return;
+
+  isInitializing = true;
+  subjectSelect.value = selectedSubject;
+
+  setTimeout(() => {
+    isInitializing = false;
+  }, 0);
+}
+
 // ---------------- DATA LISTENERS ----------------
 
 function attachDataListeners() {
@@ -208,26 +225,34 @@ function attachDataListeners() {
     renderTable();
   });
 
-  onValue(ref(db, 'activeSession'), (snapshot) => {
-    activeSession = snapshot.val();
+ onValue(ref(db, 'activeSession'), (snapshot) => {
+  activeSession = snapshot.val();
 
-    if (activeSession) {
-      activeDateEl.textContent = activeSession.date;
+  if (activeSession) {
+    activeDateEl.textContent = activeSession.date;
 
-      if (activeSession.subject) {
-        selectedSubject = activeSession.subject;
-        subjectSelect.value = selectedSubject;
-      }
+    if (activeSession.subject) {
+      selectedSubject = activeSession.subject;
+
+      // 🔥 sync AFTER subjects exist
+      syncSubjectSelection();
     }
+  }
 
-    subscribeAttendanceForSelection();
-    loadTotalSessionsBySubject();
-  });
+  subscribeAttendanceForSelection();
+  loadTotalSessionsBySubject();
+});
 
   // Session selection and conformation for subject switching
   subjectSelect.addEventListener('change', async () => {
 
+  // 🔥 ignore auto trigger
+  if (isInitializing) return;
+
   const newSubject = subjectSelect.value;
+
+  // 🔥 ignore same subject
+  if (newSubject === selectedSubject) return;
 
   if (activeSession && activeSession.status === "active") {
 
@@ -240,7 +265,7 @@ function attachDataListeners() {
       return;
     }
 
-    //saveSessionHistory();
+    saveSessionHistory();
 
     await update(ref(db, 'activeSession'), {
       status: "inactive"
@@ -249,8 +274,40 @@ function attachDataListeners() {
 
     selectedSubject = newSubject;
     createNewSession(selectedSubject);
-
   });
+}
+
+// For saving histrory of student data per sessions
+function saveSessionHistory() {
+
+  if (!activeSession || !selectedSubject || !activeSession.sessionId) return;
+
+  const sessionKey = `${activeSession.date}_${activeSession.sessionId}`;
+
+  const totalStudents = Object.keys(studentsMap).length;
+
+  let presentCount = 0;
+  const presentStudents = {};
+
+  Object.entries(attendanceMap).forEach(([id, data]) => {
+    if (data.status === "present") {
+      presentStudents[id] = {
+        name: studentsMap[id]?.name || "Unknown",
+        time: data.time || "-"
+      };
+      presentCount++;
+    }
+  });
+
+  const sessionData = {
+    date: activeSession.date,
+    sessionId: activeSession.sessionId,
+    totalStudents,
+    presentCount,
+    presentStudents
+  };
+
+  set(ref(db, `sessions/${selectedSubject}/${sessionKey}`), sessionData);
 }
 
 // ---------------- CLEANUP ----------------
@@ -328,8 +385,13 @@ function renderSubjects() {
     subjectSelect.appendChild(option);
   });
 
-  if (!selectedSubject) selectedSubject = subjects[0][0];
-  subjectSelect.value = selectedSubject;
+  // 🔥 ensure valid subject
+  if (!selectedSubject || !subjects.some(([id]) => id === selectedSubject)) {
+    selectedSubject = subjects[0][0];
+  }
+
+  // 🔥 sync properly
+  syncSubjectSelection();
 
   // 🔥 AUTO SESSION FIX
   if (
