@@ -25,7 +25,20 @@ unsigned long lastScanTime = 0;
 // 🔷 UID Mapping
 String getStudentId(String uid) {
   if (uid == "03DFCCFA") return "S001";
-  else if (uid == "23A28DD") return "S002";
+  else if (uid == "F75E8468") return "S002";
+  else if (uid == "E73F8468") return "S003";
+  else if (uid == "97348768") return "S004";
+  else if (uid == "274A8C68") return "S005";
+  else if (uid == "27EA8868") return "S006";
+  else if (uid == "E7E48C68") return "S007";
+  else if (uid == "F7568C68") return "S008";
+  else if (uid == "571A9568") return "S009";
+  else if (uid == "571A9568") return "S009";
+  else if (uid == "97E18468") return "S010";
+  else if (uid == "97DB8768") return "S011";
+
+
+
   return "";
 }
 
