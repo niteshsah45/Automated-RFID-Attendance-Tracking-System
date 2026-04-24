@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
 
-// 🔷 Firebase config (copy from your main app)
+// Firebase config (copy from your main app)
 const firebaseConfig = {
   apiKey: "AIzaSyAy55XJnvoF3W0qaT4AZ5iWxkj-4CLFWFk",
   authDomain: "rfid-attendance-system-aabc3.firebaseapp.com",
@@ -12,13 +12,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// 🔷 Get ID from URL
+//  Get ID from URL
 function getStudentIdFromURL() {
   const params = new URLSearchParams(window.location.search);
   return params.get("id");
 }
 
-// 🔷 MAIN FUNCTION
+//  MAIN FUNCTION
 window.loadAttendance = async function () {
 
   const studentId = document.getElementById("student-id").value.trim().toUpperCase();
@@ -31,7 +31,7 @@ window.loadAttendance = async function () {
 
   resultDiv.innerHTML = "Loading...";
 
-  // 🔷 Fetch student
+  //  Fetch student
   const studentSnap = await get(ref(db, `students/${studentId}`));
 
   if (!studentSnap.exists()) {
@@ -41,7 +41,7 @@ window.loadAttendance = async function () {
 
   const student = studentSnap.val();
 
-  // 🔷 Fetch attendance + subjects
+  //  Fetch attendance + subjects
   const [attendanceSnap, subjectsSnap] = await Promise.all([
     get(ref(db, "attendance")),
     get(ref(db, "subjects"))
@@ -89,7 +89,7 @@ window.loadAttendance = async function () {
   `;
 };
 
-// 🔥 AUTO LOAD FROM QR
+//  AUTO LOAD FROM QR
 window.addEventListener("DOMContentLoaded", () => {
 
   console.log("JS Loaded on device");

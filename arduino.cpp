@@ -5,14 +5,14 @@
 #include <WiFiClientSecure.h>
 #include <time.h>
 
-// 🔷 WiFi
+//  WiFi
 #define WIFI_SSID "Shreya"
 #define WIFI_PASSWORD "shreyaaaa"
 
-// 🔷 Firebase
+//  Firebase
 #define FIREBASE_URL "https://rfid-attendance-system-aabc3-default-rtdb.firebaseio.com"
 
-// 🔷 RFID
+// RFID
 #define SS_PIN D2
 #define RST_PIN D1
 #define BUZZER_PIN D0
@@ -22,7 +22,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 String lastUID = "";
 unsigned long lastScanTime = 0;
 
-// 🔷 UID Mapping
+//  UID Mapping
 String getStudentId(String uid) {
   if (uid == "03DFCCFA") return "S001";
   else if (uid == "F75E8468") return "S002";
@@ -42,7 +42,7 @@ String getStudentId(String uid) {
   return "";
 }
 
-// 🔷 Time
+//  Time
 String getTime() {
   time_t now = time(nullptr);
   struct tm* t = localtime(&now);
@@ -52,7 +52,7 @@ String getTime() {
   return String(buffer);
 }
 
-// 🔷 Date
+//  Date
 String getDate() {
   time_t now = time(nullptr);
   struct tm* t = localtime(&now);
@@ -96,7 +96,7 @@ void loop() {
 
   if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) return;
 
-  // 🔷 Read UID
+  //  Read UID
   String uid = "";
   for (byte i = 0; i < mfrc522.uid.size; i++) {
     if (mfrc522.uid.uidByte[i] < 0x10) uid += "0";
@@ -123,7 +123,7 @@ void loop() {
 
   Serial.println("Student ID: " + studentId);
 
-  // 🔷 Fetch active session
+  //  Fetch active session
   WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
@@ -146,7 +146,7 @@ void loop() {
     return;
   }
 
-  // 🔷 Extract subject
+  //  Extract subject
   String subject = "";
   Serial.println(subject);
   int sIndex = payload.indexOf("subject");
@@ -157,7 +157,7 @@ void loop() {
     subject = payload.substring(start, end);
   }
 
-  // 🔷 Extract status
+  //  Extract status
   String status = "";
   int statusIndex = payload.indexOf("status");
 
@@ -167,7 +167,7 @@ void loop() {
     status = payload.substring(start, end);
   }
 
-  // 🔷 Extract sessionId
+  //  Extract sessionId
     String sessionId = "";
     int idIndex = payload.indexOf("sessionId");
 
@@ -180,14 +180,14 @@ void loop() {
       sessionId.trim();
     }
 
-    // ✅ ADD DEBUG HERE
+    //  ADD DEBUG HERE
     Serial.println("------ SESSION DEBUG ------");
     Serial.println("Fetched Subject: " + subject);
     Serial.println("Fetched Status: " + status);
     Serial.println("Fetched SessionID: " + sessionId);
     Serial.println("---------------------------");
 
-    // 🔴 EXISTING CHECK
+    //  EXISTING CHECK
     if (status != "active") {
       Serial.println("Session not active");
       return;
@@ -205,12 +205,12 @@ void loop() {
   Serial.println("Date: " + date);
   Serial.println("Time: " + timeNow);
 
-  // 🔥 SESSION-BASED PATH
+  //  SESSION-BASED PATH
   String sessionKey = date + "_" + sessionId;
 
   String url = String(FIREBASE_URL) + "/attendance/" + subject + "/" + sessionKey + "/" + studentId + ".json";
 
-  // 🔷 Check duplicate
+  //  Check duplicate
   https.begin(client, url);
   https.GET();
   String existing = https.getString();
@@ -224,7 +224,7 @@ void loop() {
     return;
   }
 
-  // 🔷 Write attendance
+  //  Write attendance
   String jsonData = "{\"status\":\"present\",\"time\":\"" + timeNow + "\"}";
 
   https.begin(client, url);

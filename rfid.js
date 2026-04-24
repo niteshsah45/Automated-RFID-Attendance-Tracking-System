@@ -91,7 +91,7 @@ let selectedSubject = '';
 let totalSessionsBySubject = {};
 let detachAttendanceListener = null;
 
-// ---------------- 🔥 NEW FUNCTION ----------------
+// ----------------  NEW FUNCTION ----------------
 function createNewSession(subjectId) {
   const today = new Date().toISOString().slice(0, 10);
   const sessionId = Date.now();
@@ -234,7 +234,7 @@ function attachDataListeners() {
     if (activeSession.subject) {
       selectedSubject = activeSession.subject;
 
-      // 🔥 sync AFTER subjects exist
+      //  sync AFTER subjects exist
       syncSubjectSelection();
     }
   }
@@ -246,12 +246,12 @@ function attachDataListeners() {
   // Session selection and conformation for subject switching
   subjectSelect.addEventListener('change', async () => {
 
-  // 🔥 ignore auto trigger
+  //  ignore auto trigger
   if (isInitializing) return;
 
   const newSubject = subjectSelect.value;
 
-  // 🔥 ignore same subject
+  //  ignore same subject
   if (newSubject === selectedSubject) return;
 
   if (activeSession && activeSession.status === "active") {
@@ -385,15 +385,15 @@ function renderSubjects() {
     subjectSelect.appendChild(option);
   });
 
-  // 🔥 ensure valid subject
+  // ensure valid subject
   if (!selectedSubject || !subjects.some(([id]) => id === selectedSubject)) {
     selectedSubject = subjects[0][0];
   }
 
-  // 🔥 sync properly
+  //  sync properly
   syncSubjectSelection();
 
-  // 🔥 AUTO SESSION FIX
+  //  AUTO SESSION FIX
   if (
     selectedSubject &&
     (!activeSession?.sessionId || activeSession.status !== "active")
@@ -457,7 +457,7 @@ function renderTable() {
 // default date
 activeDateEl.textContent = new Date().toISOString().slice(0, 10);
 
-// 🔥 QR GENERATION (login page)
+//  QR GENERATION (login page)
 const qrBox = document.getElementById("qr-box");
 
 if (qrBox) {
