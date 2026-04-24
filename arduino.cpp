@@ -180,14 +180,12 @@ void loop() {
       sessionId.trim();
     }
 
-    //  ADD DEBUG HERE
-    Serial.println("------ SESSION DEBUG ------");
+    Serial.println("Session work");
     Serial.println("Fetched Subject: " + subject);
     Serial.println("Fetched Status: " + status);
     Serial.println("Fetched SessionID: " + sessionId);
     Serial.println("---------------------------");
 
-    //  EXISTING CHECK
     if (status != "active") {
       Serial.println("Session not active");
       return;
@@ -205,7 +203,7 @@ void loop() {
   Serial.println("Date: " + date);
   Serial.println("Time: " + timeNow);
 
-  //  SESSION-BASED PATH
+  //  chanign session
   String sessionKey = date + "_" + sessionId;
 
   String url = String(FIREBASE_URL) + "/attendance/" + subject + "/" + sessionKey + "/" + studentId + ".json";
@@ -224,7 +222,7 @@ void loop() {
     return;
   }
 
-  //  Write attendance
+  //  Write attendance after subject change or signin
   String jsonData = "{\"status\":\"present\",\"time\":\"" + timeNow + "\"}";
 
   https.begin(client, url);
