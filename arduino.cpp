@@ -6,8 +6,8 @@
 #include <time.h>
 
 //  WiFi
-#define WIFI_SSID "Shreya"
-#define WIFI_PASSWORD "shreyaaaa"
+#define WIFI_SSID "Realme"
+#define WIFI_PASSWORD "shraud45"
 
 //  Firebase
 #define FIREBASE_URL "https://rfid-attendance-system-aabc3-default-rtdb.firebaseio.com"
