@@ -10,109 +10,68 @@
   <main class="container">
     <header class="header">
       <h1>RFID Attendance Dashboard</h1>
-      <p class="subtitle">Teacher attendance monitor (Firebase Realtime Database)</p>
+      <p class="subtitle">Teacher attendance monitor</p>
     </header>
 
-    
     <section id="login-card" class="card">
       <h2>Teacher Login</h2>
       <form id="login-form" class="form-grid">
-        <hr>
         <div style="text-align:center; margin-top:15px;">
-          <p><strong>Scan to Check Attendance</strong></p>
           <div id="qr-box"></div>
         </div>
-        <label>
-          Email
-          <input type="email" id="email" placeholder="Enter your Email" required />
-        </label>
-        <label>
-          Password
-          <div class="password-wrapper">
-          <input type="password" id="password" placeholder="Enter password" required/>
-          <span id="toggle-password">👁</span>
-          </div>
-        </label>
+        <label>Email <input type="email" id="email" required /></label>
+        <label>Password <input type="password" id="password" required /></label>
         <button type="submit">Login</button>
       </form>
-      <p id="login-message" class="message"></p>
     </section>
 
-   
     <section id="dashboard" class="hidden">
       <div class="toolbar card">
+        <div class="toolbar-item"><span class="label">User</span><strong id="teacher-email">-</strong></div>
         <div class="toolbar-item">
-          <span class="label">Signed in as</span>
-          <strong id="teacher-email">-</strong>
-        </div>
-        <div class="toolbar-item">
-          <label for="subject-select" class="label">Subject</label>
+          <label class="label">Subject</label>
           <select id="subject-select"></select>
         </div>
-        <div class="toolbar-item">
-          <span class="label">Active date</span>
-          <strong id="active-date">-</strong>
-        </div>
+        <div class="toolbar-item"><span class="label">Date</span><strong id="active-date">-</strong></div>
         <button id="logout-btn" class="secondary-btn">Logout</button>
       </div>
 
       <section class="card">
-        <h2>Students</h2>
         <div class="stats">
-        <div class="card">
-          <h3 id="total-students">0</h3>
-          <p>Total Students</p>
+          <div class="card"><h3 id="total-students">0</h3><p>Total</p></div>
+          <div class="card"><h3 id="present-today">0</h3><p>Present</p></div>
+          <div class="card"><h3 id="attendance-percent">0%</h3><p>Rate</p></div>
         </div>
-
-        <div class="card">
-          <h3 id="present-today">0</h3>
-          <p>Present Today</p>
-        </div>
-
-        <div class="card">
-          <h3 id="attendance-percent">0%</h3>
-          <p>Attendance %</p>
-        </div>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Time</th>
-                <th>Total Attended</th>
-                <th>Attendance %</th>
-              </tr>
-            </thead>
-            <tbody id="students-body">
-              <tr>
-                <td colspan="6" class="center-muted">Login and select a subject to view attendance.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Name</th><th>Status</th><th>Time</th><th>Total</th><th>%</th></tr>
+          </thead>
+          <tbody id="students-body"></tbody>
+        </table>
       </section>
     </section>
   </main>
 
-  
-  <script type="module" src="rfid.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-
-
- 
-<div id="confirm-modal" class="modal hidden">
-  <div class="modal-box">
-    <p id="modal-text"></p>
-
-    <div class="modal-actions">
-      <button id="cancel-btn">Cancel</button>
-      <button id="confirm-btn">Confirm</button>
+  <div id="scan-overlay" class="scan-overlay hidden">
+    <div class="scan-content">
+      <div class="scan-status">✅ Attendance Marked!</div>
+      <img id="popup-student-image" src="" alt="Photo" style="width:150px; height:150px; border-radius:50%; object-fit:cover; border:4px solid #2563eb;">
+      <h2 id="popup-student-name"></h2>
+      <p id="popup-student-id"></p>
     </div>
   </div>
-</div>
+
+  <div id="confirm-modal" class="modal hidden">
+    <div class="modal-box">
+      <p id="modal-text"></p>
+      <div class="modal-btns">
+        <button id="modal-confirm" class="danger-btn">Yes</button>
+        <button id="modal-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="rfid.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 </body>
 </html>
-<!-- final -->

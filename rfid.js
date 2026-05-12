@@ -1,473 +1,103 @@
-// Firebase imports
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+import { getDatabase, ref, onValue, off, update, get } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
 
-// for auto logout if tab is closed 
-
-import { setPersistence, browserSessionPersistence } 
-from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
-
-import {
-  getDatabase,
-  ref,
-  onValue,
-  off,
-  set,
-  update
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
-
-// Config
 const firebaseConfig = {
   apiKey: "AIzaSyAy55XJnvoF3W0qaT4AZ5iWxkj-4CLFWFk",
   authDomain: "rfid-attendance-system-aabc3.firebaseapp.com",
   databaseURL: "https://rfid-attendance-system-aabc3-default-rtdb.firebaseio.com",
-  projectId: "rfid-attendance-system-aabc3",
-  storageBucket: "rfid-attendance-system-aabc3.firebasestorage.app",
-  messagingSenderId: "162396605109",
-  appId: "1:162396605109:web:f6795c46f9f020daa70cfc"
+  projectId: "rfid-attendance-system-aabc3"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-setPersistence(auth, browserSessionPersistence);
 const db = getDatabase(app);
-let isInitializing = false;
+setPersistence(auth, browserSessionPersistence);
 
-// DOM
-const loginCard = document.getElementById('login-card');
-const dashboard = document.getElementById('dashboard');
-const loginForm = document.getElementById('login-form');
-const emailInput = document.getElementById('email');
-const passwordInput = document.getElementById('password');
-const loginMessage = document.getElementById('login-message');
-const teacherEmail = document.getElementById('teacher-email');
-const subjectSelect = document.getElementById('subject-select');
-const activeDateEl = document.getElementById('active-date');
-const logoutBtn = document.getElementById('logout-btn');
-const studentsBody = document.getElementById('students-body');
-
-
-// For chainging subjects and  logout
-function showConfirm(message) {
-  return new Promise((resolve) => {
-
-    const modal = document.getElementById("confirm-modal");
-    const text = document.getElementById("modal-text");
-    const confirmBtn = document.getElementById("confirm-btn");
-    const cancelBtn = document.getElementById("cancel-btn");
-
-    text.textContent = message;
-    modal.classList.remove("hidden");
-
-    const cleanup = () => {
-      modal.classList.add("hidden");
-      confirmBtn.onclick = null;
-      cancelBtn.onclick = null;
-    };
-
-    confirmBtn.onclick = () => {
-      cleanup();
-      resolve(true);
-    };
-
-    cancelBtn.onclick = () => {
-      cleanup();
-      resolve(false);
-    };
-  });
-}
-
-// State
 let studentsMap = {};
-let attendanceMap = {};
-let subjects = [];
-let activeSession = null;
-let selectedSubject = '';
-let totalSessionsBySubject = {};
+let previousKeys = [];
 let detachAttendanceListener = null;
 
-// ----------------  NEW FUNCTION ----------------
-function createNewSession(subjectId) {
-  const today = new Date().toISOString().slice(0, 10);
-  const sessionId = Date.now();
-
-  const data = {
-    subject: subjectId,
-    status: "active",
-    date: today,
-    sessionId: sessionId
-  };
-
-  console.log("SESSION CREATED:", data);
-
-  set(ref(db, 'activeSession'), data);
-}
-
-// ---------------- AUTH ----------------
-
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  loginMessage.textContent = '';
-
-  try {
-    await signInWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
-    loginForm.reset();
-  } catch (err) {
-    loginMessage.textContent = err.message;
-  }
-});
-
-// password show
-// const passwordInput = document.getElementById("password");
-const toggleBtn = document.getElementById("toggle-password");
-
-if (toggleBtn) {
-  toggleBtn.addEventListener("click", () => {
-    const type = passwordInput.type === "password" ? "text" : "password";
-    passwordInput.type = type;
-
-    toggleBtn.textContent = type === "password" ? "👁" : "👁‍🗙";
-  });
-}
-
-// Logout
-logoutBtn.addEventListener('click', async () => {
-
-  const confirmLogout = await showConfirm(
-    "Logout and end current session?"
-  );
-
-  if (!confirmLogout) return;
-
-  saveSessionHistory();
-
-
-  await update(ref(db, 'activeSession'), {
-    status: "inactive"
-  });
-
-  await signOut(auth);
-});
-
-// ---------------- AUTH STATE ----------------
-
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
-    loginCard.classList.add('hidden');
-    dashboard.classList.remove('hidden');
-    teacherEmail.textContent = user.email;
+    document.getElementById('login-card').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    
+    // Load Students & Subjects
+    const [subSnap, stuSnap] = await Promise.all([get(ref(db, 'subjects')), get(ref(db, 'students'))]);
+    studentsMap = stuSnap.val() || {};
+    
+    const select = document.getElementById('subject-select');
+    select.innerHTML = Object.entries(subSnap.val() || {}).map(([id, d]) => `<option value="${id}">${d.name || id}</option>`).join('');
 
-    loadTeacherSubjects(user.email);
-    attachDataListeners();
-
+    // Listen to Session
+    onValue(ref(db, 'activeSession'), (snap) => {
+      const active = snap.val();
+      if (active && active.status === "active") {
+        document.getElementById('active-date').textContent = active.date;
+        select.value = active.subject;
+        startAttendanceSync(active);
+      }
+    });
   } else {
-    loginCard.classList.remove('hidden');
-    dashboard.classList.add('hidden');
-    cleanupDynamicListeners();
+    document.getElementById('login-card').classList.remove('hidden');
+    document.getElementById('dashboard').classList.add('hidden');
   }
 });
 
-// ---------------- LOAD SUBJECTS ----------------
-
-function loadTeacherSubjects(email) {
-  onValue(ref(db, 'teachers'), (snapshot) => {
-    const teachers = snapshot.val() || {};
-    let teacherId = null;
-
-    Object.entries(teachers).forEach(([id, t]) => {
-      if (t.email === email) teacherId = id;
-    });
-
-    if (!teacherId) {
-      subjects = [];
-      renderSubjects();
-      return;
-    }
-
-    const subjectIds = Object.keys(teachers[teacherId].subjects || {});
-
-    onValue(ref(db, 'subjects'), (snap) => {
-      const allSubjects = snap.val() || {};
-
-      subjects = subjectIds
-        .filter(id => allSubjects[id])
-        .map(id => [id, allSubjects[id]]);
-
-      renderSubjects();
-    });
-  });
-}
-
-// function for syncing auto subjects
-function syncSubjectSelection() {
-  if (!selectedSubject) return;
-  if (subjectSelect.options.length === 0) return;
-
-  isInitializing = true;
-  subjectSelect.value = selectedSubject;
-
-  setTimeout(() => {
-    isInitializing = false;
-  }, 0);
-}
-
-// ---------------- DATA LISTENERS ----------------
-
-function attachDataListeners() {
-
-  onValue(ref(db, 'students'), (snapshot) => {
-    studentsMap = snapshot.val() || {};
-    renderTable();
-  });
-
- onValue(ref(db, 'activeSession'), (snapshot) => {
-  activeSession = snapshot.val();
-
-  if (activeSession) {
-    activeDateEl.textContent = activeSession.date;
-
-    if (activeSession.subject) {
-      selectedSubject = activeSession.subject;
-
-      //  sync AFTER subjects exist
-      syncSubjectSelection();
-    }
-  }
-
-  subscribeAttendanceForSelection();
-  loadTotalSessionsBySubject();
-});
-
-  // Session selection and conformation for subject switching
-  subjectSelect.addEventListener('change', async () => {
-
-  //  ignore auto trigger
-  if (isInitializing) return;
-
-  const newSubject = subjectSelect.value;
-
-  //  ignore same subject
-  if (newSubject === selectedSubject) return;
-
-  if (activeSession && activeSession.status === "active") {
-
-    const confirmSwitch = await showConfirm(
-      "End current session and start a new one?"
-    );
-
-    if (!confirmSwitch) {
-      subjectSelect.value = selectedSubject;
-      return;
-    }
-
-    saveSessionHistory();
-
-    await update(ref(db, 'activeSession'), {
-      status: "inactive"
-    });
-  }
-
-    selectedSubject = newSubject;
-    createNewSession(selectedSubject);
-  });
-}
-
-// For saving histrory of student data per sessions
-function saveSessionHistory() {
-
-  if (!activeSession || !selectedSubject || !activeSession.sessionId) return;
-
-  const sessionKey = `${activeSession.date}_${activeSession.sessionId}`;
-
-  const totalStudents = Object.keys(studentsMap).length;
-
-  let presentCount = 0;
-  const presentStudents = {};
-
-  Object.entries(attendanceMap).forEach(([id, data]) => {
-    if (data.status === "present") {
-      presentStudents[id] = {
-        name: studentsMap[id]?.name || "Unknown",
-        time: data.time || "-"
-      };
-      presentCount++;
-    }
-  });
-
-  const sessionData = {
-    date: activeSession.date,
-    sessionId: activeSession.sessionId,
-    totalStudents,
-    presentCount,
-    presentStudents
-  };
-
-  set(ref(db, `sessions/${selectedSubject}/${sessionKey}`), sessionData);
-}
-
-// ---------------- CLEANUP ----------------
-
-function cleanupDynamicListeners() {
+function startAttendanceSync(active) {
   if (detachAttendanceListener) detachAttendanceListener();
-}
+  previousKeys = []; // Reset tracker for new session
+  
+  const path = `attendance/${active.subject}/${active.date}_${active.sessionId}`;
+  const callback = onValue(ref(db, path), (snap) => {
+    const data = snap.val() || {};
+    const currentKeys = Object.keys(data);
 
-// ---------------- ATTENDANCE ----------------
-
-function subscribeAttendanceForSelection() {
-
-  if (detachAttendanceListener) detachAttendanceListener();
-
-  if (!selectedSubject || !activeSession?.sessionId) {
-    attendanceMap = {};
-    renderTable();
-    return;
-  }
-
-  const sessionKey = `${activeSession.date}_${activeSession.sessionId}`;
-
-  const attendanceRef = ref(db, `attendance/${selectedSubject}/${sessionKey}`);
-
-  const callback = (snapshot) => {
-    attendanceMap = snapshot.val() || {};
-    renderTable();
-  };
-
-  onValue(attendanceRef, callback);
-  detachAttendanceListener = () => off(attendanceRef, 'value', callback);
-}
-
-// ---------------- TOTAL SESSIONS ----------------
-
-function loadTotalSessionsBySubject() {
-  if (!selectedSubject) return;
-
-  onValue(ref(db, `attendance/${selectedSubject}`), (snapshot) => {
-    const data = snapshot.val() || {};
-    const sessions = Object.keys(data);
-
-    const totals = {};
-
-    sessions.forEach(session => {
-      const sData = data[session] || {};
-      Object.keys(sData).forEach(id => {
-        totals[id] = (totals[id] || 0) + 1;
-      });
-    });
-
-    totalSessionsBySubject = {
-      totals,
-      totalSessions: sessions.length
-    };
-
-    renderTable();
+    if (currentKeys.length > previousKeys.length) {
+      const newId = currentKeys.find(k => !previousKeys.includes(k));
+      const student = studentsMap[newId];
+      if (student) {
+        showPopup(newId, student);
+      }
+    }
+    previousKeys = currentKeys;
+    updateTable(data, active.subject);
   });
+  detachAttendanceListener = () => off(ref(db, path), 'value', callback);
 }
 
-// ---------------- SUBJECT UI ----------------
-
-function renderSubjects() {
-  subjectSelect.innerHTML = '';
-
-  if (subjects.length === 0) {
-    subjectSelect.innerHTML = '<option>No subjects</option>';
-    return;
-  }
-
-  subjects.forEach(([id, s]) => {
-    const option = document.createElement('option');
-    option.value = id;
-    option.textContent = s.name;
-    subjectSelect.appendChild(option);
-  });
-
-  // ensure valid subject
-  if (!selectedSubject || !subjects.some(([id]) => id === selectedSubject)) {
-    selectedSubject = subjects[0][0];
-  }
-
-  //  sync properly
-  syncSubjectSelection();
-
-  //  AUTO SESSION FIX
-  if (
-    selectedSubject &&
-    (!activeSession?.sessionId || activeSession.status !== "active")
-  ) {
-    createNewSession(selectedSubject);
-  }
+function showPopup(id, student) {
+  const overlay = document.getElementById('scan-overlay');
+  document.getElementById('popup-student-name').textContent = student.name;
+  document.getElementById('popup-student-id').textContent = `ID: ${id}`;
+  document.getElementById('popup-student-image').src = student.image || "";
+  
+  overlay.classList.remove('hidden');
+  setTimeout(() => overlay.classList.add('hidden'), 3500);
 }
 
-// ---------------- TABLE ----------------
+async function updateTable(current, subject) {
+  const historySnap = await get(ref(db, `attendance/${subject}`));
+  const history = historySnap.val() || {};
+  const totalSess = Object.keys(history).length;
+  const totals = {};
+  Object.values(history).forEach(s => Object.keys(s).forEach(id => totals[id] = (totals[id] || 0) + 1));
 
-
-
-function renderTable() {
-
-  const totalStudents = Object.keys(studentsMap).length;
-
-  const presentToday = Object.values(attendanceMap).filter(
-  s => s.status === "present"
-  ).length;
-
-  const attendancePercent =
-  totalStudents > 0
-    ? ((presentToday / totalStudents) * 100).toFixed(1)
-    : 0;
-
-  const students = Object.entries(studentsMap);
-  const totalSessions = totalSessionsBySubject.totalSessions || 0;
-  const totals = totalSessionsBySubject.totals || {};
-
-  if (students.length === 0) {
-    studentsBody.innerHTML = '<tr><td colspan="6">No students</td></tr>';
-    return;
-  }
-
-  studentsBody.innerHTML = students.map(([id, s]) => {
-    const present = attendanceMap[id]?.status === "present";
+  document.getElementById('students-body').innerHTML = Object.entries(studentsMap).map(([id, s]) => {
+    const isPresent = current[id];
     const count = totals[id] || 0;
-    const percent = totalSessions > 0 ? ((count / totalSessions) * 100).toFixed(1) : 0;
-    const rowClass = present ? "row-present" : "";
-
-    return `
-      <tr class="${rowClass}">
-
-        <td>${id}</td>
-        <td>${s.name}</td>
-        <td class="${present ? 'status-present' : 'status-absent'}">
-          ${present ? '✔ Present' : '✖ Absent'}
-        </td>
-        <td>${attendanceMap[id]?.time || '-'}</td>
-        <td>${count}/${totalSessions}</td>
-        <td>${percent}%</td>
-      </tr>
-    `;
+    const pct = totalSess > 0 ? ((count / totalSess) * 100).toFixed(1) : 0;
+    return `<tr><td>${id}</td><td>${s.name}</td><td style="color:${isPresent?'green':'red'}">${isPresent?'✔':'✖'}</td><td>${isPresent?.time || '-'}</td><td>${count}/${totalSess}</td><td>${pct}%</td></tr>`;
   }).join('');
-
-  document.getElementById("total-students").textContent = totalStudents;
-  document.getElementById("present-today").textContent = presentToday;
-  document.getElementById("attendance-percent").textContent = attendancePercent + "%";
 }
 
-// default date
-activeDateEl.textContent = new Date().toISOString().slice(0, 10);
+document.getElementById('login-form').onsubmit = (e) => {
+  e.preventDefault();
+  signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value);
+};
 
-//  QR GENERATION (login page)
-const qrBox = document.getElementById("qr-box");
-
-if (qrBox) {
-
-  const studentId = "S001"; // test first
-
- const url = `https://endearing-valkyrie-5f5b07.netlify.app/rfidstudent.html?id=${studentId}`;
-
-  QRCode.toCanvas(url, function (err, canvas) {
-    if (!err) qrBox.appendChild(canvas);
-  });
-}
-//final
+document.getElementById('logout-btn').onclick = async () => {
+  await update(ref(db, 'activeSession'), { status: "inactive" });
+  signOut(auth);
+};
