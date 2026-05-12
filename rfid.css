@@ -234,6 +234,20 @@ td {
   text-align: center;
 }
 
+/* Start both as hidden so they don't flicker */
+#login-card, #dashboard {
+  display: none;
+}
+
+/* Use this to show the active one */
+.show-view {
+  display: block !important;
+}
+
+/* Standard hidden utility */
+.hidden {
+  display: none !important;
+}
 .modal-actions {
   margin-top: 15px;
   display: flex;
